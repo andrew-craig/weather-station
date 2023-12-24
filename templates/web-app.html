@@ -1,0 +1,18 @@
+<html>
+   <head>
+	<meta name="viewport" content="width=device-width">
+        <link rel="stylesheet" href='/static/style.css' />
+    </head>
+<body>
+        <div class="temperature"> {{ temp }}&deg; </div>
+        <div class="row">
+            <div class="weather-details-token mid-size"><div class="num"> {{ humidity }}% </div><div class="title">Humidity</div></div>
+            <div class="weather-details-token mid-size"><div class="num"> {{ pressure }} </div><div class="title">Pressure (hPa)</div></div>
+        </div>
+        <div class="row">
+            <div class="weather-details-token small-size"><div class="num"> {{ pm1 }} </div><div class="title">PM1.0 (&mu;g)</div></div>
+            <div class="weather-details-token small-size"><div class="num"> {{ pm25 }} </div><div class="title">PM2.5 (&mu;g)</div></div>
+            <div class="weather-details-token small-size"><div class="num"> {{ pm10 }} </div><div class="title">PM10 (&mu;g)</div></div>
+        </div>
+</body>
+</html>
