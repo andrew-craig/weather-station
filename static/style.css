@@ -59,6 +59,17 @@ body {
     font-size: 84px;
 }
 
+.bird-list {
+    flex-direction: column;
+    margin-top: 16px;
+}
+
+.bird {
+    margin-top: 16px;
+    font-size: 36px;
+    text-align: center;
+}
+
 @media screen and (max-width: 600px) {
     body {
         gap: 32px;
@@ -76,6 +87,11 @@ body {
         font-size: 72px;
     }
 
+    .bird {
+        font-size: 28px;
+        margin-top: 14px;
+    }
+
 }
 
 @media screen and (max-width: 470px) {
@@ -89,6 +105,11 @@ body {
 
     .mid-size > .num, .small-size > .num {
         font-size: 54px;
+    }
+
+    .bird {
+        font-size: 24px;
+        margin-top: 12px;
     }
 
 }

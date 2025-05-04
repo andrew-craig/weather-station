@@ -1,7 +1,8 @@
 <html>
    <head>
 	<meta name="viewport" content="width=device-width">
-        <link rel="stylesheet" href='/static/style.css' />
+    <meta http-equiv="refresh" content="10">
+    <link rel="stylesheet" href='/static/style.css' />
     </head>
 <body>
         <div class="temperature"> {{ temp }}&deg; </div>
@@ -14,5 +15,13 @@
             <div class="weather-details-token small-size"><div class="num"> {{ pm25 }} </div><div class="title">PM2.5 (&mu;g)</div></div>
             <div class="weather-details-token small-size"><div class="num"> {{ pm10 }} </div><div class="title">PM10 (&mu;g)</div></div>
         </div>
+        {% if bird_list|length > 0 %}
+        <div class="row bird-list">
+            <div class="title">Birds</div>
+            {% for bird in bird_list %}
+            <div class="bird">{{ bird }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
 </body>
 </html>

@@ -6,6 +6,9 @@ A home weather station to run on a Raspberry Pi. There are two services, one to 
 
 
 ## Installation
+Install python-dev
+> sudo apt install python3-dev
+
 Navigate to the project directory
 > cd ~/weather-station
 
@@ -61,6 +64,12 @@ Add the below to the file. Replace `operator` with your username.
     WantedBy=multi-user.target
 Save and exit.
 
+Enable the service
+> sudo systemctl enable weather-logger
+
+Start the service
+> sudo systemctl start weather-logger
+
 Create a new file `weather-server.service`
 > sudo nano weather-server.service
 
@@ -69,7 +78,7 @@ Add the below to the file. Replace `operator` with your username.
     Description=Service for weather station website and API
     StartLimitIntervalSec=300
     StartLimitBurst=5
-    
+
     [Service]
     User=operator
     ExecStart=/home/operator/weather-station/venv/bin/gunicorn --workers 2 -m 007 weather-server:app
@@ -77,13 +86,20 @@ Add the below to the file. Replace `operator` with your username.
     Environment="PATH=/home/operator/weather-station/venv/bin"
     Restart=on-failure
     RestartSec=5s
-    
+
     [Install]
     WantedBy=multi-user.target
 
+Enable the service
+> sudo systemctl enable weather-server
+
+Start the service
+> sudo systemctl start weather-server
+
+
 ## Setup nginx as a reverse proxy
 Install nginx
-> apt install nginx
+> sudo apt install nginx
 
 Navigate to the `sites-available` nginx directory
 > cd /etc/nginx/sites-available
@@ -94,8 +110,8 @@ Create a new file `weather-server`
 Add the following to the file
     server {
         listen 80;
-        server_name weather.local;
-    
+        server_name outside.local;
+
         location / {
             include proxy_params;
             proxy_pass http://127.0.0.1:8000;
@@ -105,3 +121,6 @@ Save and exit.
 
 Make this available
 > sudo ln -s /etc/nginx/sites-available/weather-server /etc/nginx/sites-enabled/weather-server
+
+
+

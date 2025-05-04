@@ -4,34 +4,155 @@ import time
 import os
 import asyncio
 import datetime
-import sqlite3
+import json
+import time
+import uuid
+import logging
+import requests
+import socket
+import paho.mqtt.client as mqtt
 from uuid_extensions import uuid7str
 from zoneinfo import ZoneInfo
+logger = logging.getLogger(__name__)
 
-def log_readings():
+# MQTT broker settings
+BROKER_HOST = "hub.local"  # Change to your MQTT broker address
+BROKER_PORT = 1883         # Default MQTT port
+TOPIC = "outside/weather"     # Change to your desired topic
+CLIENT_ID = f"weather-mqtt-{uuid.uuid4()}"  # Generate a unique client ID
+
+# HomeAssistant MQTT configuration
+DISCOVERY_PREFIX = "homeassistant"  # Default HomeAssistant discovery prefix
+DEVICE_ID = "environment_sensor_1"  # Unique identifier for your device
+NODE_ID = socket.gethostname()      # Use hostname as node identifier
+
+def on_connect(client, userdata, flags, rc):
+    """Callback for when the client connects to the broker"""
+    if rc == 0:
+        print(f"Connected to MQTT broker at {BROKER_HOST}:{BROKER_PORT}")
+    else:
+        print(f"Failed to connect to MQTT broker. Return code: {rc}")
+
+def on_publish(client, userdata, mid):
+    """Callback for when a message is published"""
+    print(f"Message ID {mid} published successfully")
+
+def publish_discovery_messages(client):
+    """Publish HomeAssistant MQTT discovery messages for each sensor"""
+    sensors = {
+        "temperature": {
+            "name": "Temperature",
+            "unit_of_measurement": "°C",
+            "device_class": "temperature",
+            "state_class": "measurement",
+            "value_template": "{{ value_json.temperature }}"
+        },
+        "humidity": {
+            "name": "Humidity",
+            "unit_of_measurement": "%",
+            "device_class": "humidity",
+            "state_class": "measurement",
+            "value_template": "{{ value_json.humidity }}"
+        },
+        "pressure": {
+            "name": "Pressure",
+            "unit_of_measurement": "hPa",
+            "device_class": "pressure",
+            "state_class": "measurement",
+            "value_template": "{{ value_json.pressure }}"
+        }
+    }
+    
+    # Device info (shared across all sensors)
+    device_info = {
+        "identifiers": [DEVICE_ID],
+        "name": f"Environment Sensor {DEVICE_ID}",
+        "model": "Custom Sensor Array",
+        "manufacturer": "DIY Project",
+        "sw_version": "1.0.0"
+    }
+    
+    # Publish discovery configuration for each sensor
+    for sensor_type, config in sensors.items():
+        # Config topic: homeassistant/sensor/[device_id]/[sensor_type]/config
+        config_topic = f"{DISCOVERY_PREFIX}/sensor/{DEVICE_ID}/{sensor_type}/config"
+        
+        # Build the config payload
+        payload = {
+            "name": config["name"],
+            "unique_id": f"{DEVICE_ID}_{sensor_type}",
+            "device_class": config["device_class"],
+            "state_class": config["state_class"],
+            "unit_of_measurement": config["unit_of_measurement"],
+            "state_topic": f"homeassistant/sensor/{DEVICE_ID}/state",
+            "value_template": config["value_template"],
+            "device": device_info,
+            "availability_topic": f"homeassistant/sensor/{DEVICE_ID}/availability",
+            "payload_available": "online",
+            "payload_not_available": "offline"
+        }
+        
+        # Publish discovery message with retain flag
+        client.publish(config_topic, json.dumps(payload), qos=1, retain=True)
+        print(f"Published discovery message for {sensor_type} sensor")
+    
+    # Set device as available
+    client.publish(f"homeassistant/sensor/{DEVICE_ID}/availability", "online", qos=1, retain=True)
+
+def log_readings(mqtt_client):
 
     while True:
         start_time = datetime.datetime.now(tz=ZoneInfo('UTC'))
+        run_uuid = uuid7str()
 
-        # fetch sensor data
-        bme_data = sensors.bme_sensor.read_all()
-        pms_data = sensors.pms_sensor.read_all()
+        # fetch temp data
+        try: 
+            bme_data = sensors.bme_sensor.read_all()
+            try:
+                payload = { 'id': run_uuid,
+                            'ts': start_time.timestamp(), 
+                            'temperature': bme_data[0], 
+                            'humidity': bme_data[1],
+                            'pressure': bme_data[2]
+                            }
+                r = requests.post('http://127.0.0.1:8000/weather/latest', json=payload)
+            except:
+                logger.info('Error saving data from BME Sensor.')
 
-        # save to database
-        database = 'weather-readings.db'
-        table_name = 'readings'
-        columns = 'id text, ts integer, temperature real, humidity real, pressure real, pm_1 real, pm_2_5 real, pm_10 real'
-        connection = sqlite3.connect(os.path.join(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'db'), database))
-        cursor = connection.cursor()
-        cursor.execute("""CREATE TABLE IF NOT EXISTS {table_name} ({columns})""".format(table_name=table_name, columns=columns))
-        cursor.execute('INSERT INTO {table_name} VALUES(?, ?, ?, ?, ?, ?, ?, ?)'.format(table_name=table_name),
-            [uuid7str(), start_time.timestamp(), bme_data[0], bme_data[1], bme_data[2], pms_data.pm_ug_per_m3(1.0), pms_data.pm_ug_per_m3(2.5), pms_data.pm_ug_per_m3(10)]
-            )
-        connection.commit()
-        connection.close()
+            try:
+                print(f"Connecting to MQTT broker at {BROKER_HOST}:{BROKER_PORT}...")
+                sensor_data = {
+                    'temperature': bme_data[0],
+                    'humidity': bme_data[1],
+                    'pressure': bme_data[2]
+                    }
+                payload = json.dumps(sensor_data)
+                state_topic = f"homeassistant/sensor/{DEVICE_ID}/state"
+                result = mqtt_client.publish(state_topic, payload, qos=1)
+                result.wait_for_publish()
+            except:
+                logger.info('Publishing to MQTT failed')
+        except:
+            logger.info('Error fetching data from BME Sensor.')
 
-        print("Temp: {temp:.1f}°C".format(temp=bme_data[0]))
-        print("Air Quality (pm2.5): {pm2_5}".format(pm2_5=pms_data.pm_ug_per_m3(2.5)))
+        # fetch and save air quality data
+        try: 
+            pms_data = sensors.pms_sensor.read_all()
+            try:
+                payload = { 'id': run_uuid,
+                            'ts': start_time.timestamp(), 
+                            'pm1': pms_data.pm_ug_per_m3(1.0), 
+                            'pm2_5': pms_data.pm_ug_per_m3(2.5),
+                            'pm10': pms_data.pm_ug_per_m3(10)
+                            }
+                r = requests.post('http://127.0.0.1:8000/air/latest', json=payload)
+            except:
+                logger.info('Error saving data from PMS Sensor.')
+        except:
+            logger.info('Error fetching data from PMS Sensor.')
+
+
+        logger.info('Data pull complete.')
 
 	# calculate how long to wait
         finish_time = datetime.datetime.now(tz=ZoneInfo('UTC'))
@@ -41,9 +162,22 @@ def log_readings():
     return None
 
 def main():
+    logging.basicConfig(filename='weather-logger.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # Create an MQTT client instance
+    mqtt_client = mqtt.Client(CLIENT_ID)
+    
+    # Set up callbacks
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_publish = on_publish
+    
+    # wait for the discovery message to be created
+    publish_discovery_messages(mqtt_client)
+    time.sleep(2)
+
     async def readingsWorker():
         while True:
-            log_readings()
+            log_readings(mqtt_client)
 
 #    async def secondWorker():
 #        while True:
@@ -53,6 +187,7 @@ def main():
 
     loop = asyncio.get_event_loop()
     print("Starting Server")
+    logger.info("Starting Server")
     try:
         asyncio.ensure_future(readingsWorker())
 #        asyncio.ensure_future(secondWorker())
@@ -61,6 +196,9 @@ def main():
         pass
     finally:
         print("Stopping Server")
+        mqtt_client.publish(f"homeassistant/sensor/{DEVICE_ID}/availability", "offline", qos=1, retain=True)
+        mqtt_client.disconnect()
+        logger.info("Stopping Server")
         loop.close()
 
 
