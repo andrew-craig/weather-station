@@ -14,14 +14,14 @@ WEATHER_DB = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'db/weath
 def initiate_tables(db_path):
     tables = [{'name':'thp_readings', 'columns':'id text, ts integer, temperature real, humidity real, pressure real'},
               {'name':'air_quality_readings', 'columns':'id text, ts integer, pm1 real, pm2_5 real, pm10 real'}]
-    app.logger.info(f'Initiating {len(tables)} tables.')
+    logger.info(f'Initiating {len(tables)} tables.')
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
     for table in tables:
         cursor.execute("""CREATE TABLE IF NOT EXISTS {table_name} ({columns})""".format(table_name=table.get('name'), columns=table.get('columns')))
     connection.commit()
     connection.close()
-    app.logger.info(f'Initiating {len(tables)} tables.')
+    logger.info(f'Initiating {len(tables)} tables.')
     return True
 
 def query_weather(query):
@@ -135,17 +135,20 @@ def index():
 
 @app.route('/weather/latest', methods=['GET','POST'])
 def latest_weather():
+    logger.info(f'Received {request.method} request to /weather/latest.')
     if request.method == 'POST':
         try:
             r = request.get_json()
             write_latest_weather(id=r.get('id'), ts=r.get('ts'), temperature=r.get('temperature'), humidity=r.get('humidity'), pressure=r.get('pressure'))
             return jsonify({'success':True}), 200, {'ContentType':'application/json'} 
         except:
+            logger.info(f'Experienced an error processing POST request to /weather/latest')
             return jsonify({ 'error': 'Request data issue' }), 400
     else:
         try: 
             return jsonify(query_latest_weather())
         except ValueError:
+            logger.info(f'Experienced an error processing GET request to /weather/latest')
             return jsonify({ 'error': 'No recent readings' }), 500
 
 
