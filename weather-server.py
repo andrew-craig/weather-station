@@ -199,4 +199,5 @@ def read_recent_birds():
 
 if __name__ == '__main__':
     logging.basicConfig(filename='weather-server.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    initiate_tables(WEATHER_DB)
     app.run(debug=True, host='0.0.0.0',  port=5005)
