@@ -165,7 +165,7 @@ def main():
     logging.basicConfig(filename='weather-logger.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Create an MQTT client instance
-    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, CLIENT_ID)
+    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, CLIENT_ID)
     
     # Set up callbacks
     mqtt_client.on_connect = on_connect
