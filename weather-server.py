@@ -15,13 +15,18 @@ def initiate_tables(db_path):
     tables = [{'name':'thp_readings', 'columns':'id text, ts integer, temperature real, humidity real, pressure real'},
               {'name':'air_quality_readings', 'columns':'id text, ts integer, pm1 real, pm2_5 real, pm10 real'}]
     logger.info(f'Initiating {len(tables)} tables.')
+    print('Initiating tables')
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
     for table in tables:
+        print('Initiating a table')
+        print(table.get('name'))
+        print(table.get('columns'))
         cursor.execute("""CREATE TABLE IF NOT EXISTS {table_name} ({columns})""".format(table_name=table.get('name'), columns=table.get('columns')))
     connection.commit()
     connection.close()
-    logger.info(f'Initiating {len(tables)} tables.')
+    print('Completed table initiation')
+    logger.info(f'Completed table initiation.')
     return True
 
 def query_weather(query):
@@ -202,5 +207,6 @@ def read_recent_birds():
 
 if __name__ == '__main__':
     logging.basicConfig(filename='weather-server.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    print('Triggering table initiation')
     initiate_tables(WEATHER_DB)
     app.run(debug=True, host='0.0.0.0',  port=5005)
