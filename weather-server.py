@@ -8,7 +8,6 @@ import logging
 logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
-BIRD_DB = "/home/operator/bird-listener/db/bird-observations.db"
 PRIMARY_DB = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "db/weather-server.db"
 )
