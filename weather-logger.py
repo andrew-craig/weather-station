@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 import sensors.bme_sensor
 import sensors.pms_sensor
 import time
