@@ -10,10 +10,51 @@ import uuid
 import logging
 import requests
 import socket
+import sqlite3
 import paho.mqtt.client as mqtt
 from uuid_extensions import uuid7str
 from zoneinfo import ZoneInfo
 logger = logging.getLogger(__name__)
+
+# Database configuration
+LOGGER_DB = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'db/weather-logger.db')
+
+def initiate_tables(db_path):
+    tables = [{'name':'thp_readings', 'columns':'id text, ts integer, temperature real, humidity real, pressure real'},
+              {'name':'air_quality_readings', 'columns':'id text, ts integer, pm1 real, pm2_5 real, pm10 real'}]
+    logger.info(f'Initiating {len(tables)} tables.')
+    print('Initiating tables')
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    for table in tables:
+        print('Initiating a table')
+        print(table.get('name'))
+        print(table.get('columns'))
+        cursor.execute("""CREATE TABLE IF NOT EXISTS {table_name} ({columns})""".format(table_name=table.get('name'), columns=table.get('columns')))
+    connection.commit()
+    connection.close()
+    print('Completed table initiation')
+    logger.info(f'Completed table initiation.')
+    return True
+
+def write_logger_data(query):
+    connection = sqlite3.connect(LOGGER_DB)
+    cursor = connection.cursor()
+    cursor.execute(query)
+    connection.commit()
+    connection.close()
+    return True
+
+def write_latest_weather(id: str, ts: float, temperature: float, humidity: float, pressure: float):
+    query = f"""INSERT INTO thp_readings VALUES('{id}', {ts}, {temperature}, {humidity}, {pressure})"""
+    print(query)
+    write_logger_data(query)
+    return True
+
+def write_latest_air(id: str, ts: float, pm1: float, pm2_5: float, pm10: float):
+    query = f"""INSERT INTO air_quality_readings VALUES('{id}', {ts}, {pm1}, {pm2_5}, {pm10})"""
+    write_logger_data(query)
+    return True
 
 # MQTT broker settings
 BROKER_HOST = "hub.local"  # Change to your MQTT broker address
@@ -106,16 +147,19 @@ def log_readings(mqtt_client):
         run_uuid = uuid7str()
 
         # fetch temp data
-        try: 
+        try:
             bme_data = sensors.bme_sensor.read_all()
             try:
                 payload = { 'id': run_uuid,
-                            'ts': start_time.timestamp(), 
-                            'temperature': bme_data[0], 
+                            'ts': start_time.timestamp(),
+                            'temperature': bme_data[0],
                             'humidity': bme_data[1],
                             'pressure': bme_data[2]
                             }
-                r = requests.post('http://127.0.0.1:8000/weather/latest', json=payload)
+                # Write to local database
+                write_latest_weather(id=run_uuid, ts=start_time.timestamp(), temperature=bme_data[0], humidity=bme_data[1], pressure=bme_data[2])
+                # Send to weather-server
+                r = requests.post('http://127.0.0.1:5005/weather/latest', json=payload)
             except:
                 logger.info('Error saving data from BME Sensor.')
 
@@ -136,16 +180,19 @@ def log_readings(mqtt_client):
             logger.info('Error fetching data from BME Sensor.')
 
         # fetch and save air quality data
-        try: 
+        try:
             pms_data = sensors.pms_sensor.read_all()
             try:
                 payload = { 'id': run_uuid,
-                            'ts': start_time.timestamp(), 
-                            'pm1': pms_data.pm_ug_per_m3(1.0), 
+                            'ts': start_time.timestamp(),
+                            'pm1': pms_data.pm_ug_per_m3(1.0),
                             'pm2_5': pms_data.pm_ug_per_m3(2.5),
                             'pm10': pms_data.pm_ug_per_m3(10)
                             }
-                r = requests.post('http://127.0.0.1:8000/air/latest', json=payload)
+                # Write to local database
+                write_latest_air(id=run_uuid, ts=start_time.timestamp(), pm1=pms_data.pm_ug_per_m3(1.0), pm2_5=pms_data.pm_ug_per_m3(2.5), pm10=pms_data.pm_ug_per_m3(10))
+                # Send to weather-server
+                r = requests.post('http://127.0.0.1:5005/air/latest', json=payload)
             except:
                 logger.info('Error saving data from PMS Sensor.')
         except:
@@ -163,6 +210,10 @@ def log_readings(mqtt_client):
 
 def main():
     logging.basicConfig(filename='weather-logger.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # Initialize database tables
+    print('Triggering table initiation for weather-logger database')
+    initiate_tables(LOGGER_DB)
 
     # Create an MQTT client instance
     mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, CLIENT_ID)
