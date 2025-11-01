@@ -1,0 +1,13 @@
+[project]
+name = "weather-station"
+version = "0.1.0"
+description = "Raspberry Pi weather station with Flask web server"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.0.0",
+    "gunicorn>=21.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
