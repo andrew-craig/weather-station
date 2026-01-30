@@ -38,7 +38,8 @@ def setup_logging():
     return logger
 
 # Add Logger
-logger = setup_logging()app = Flask(__name__)
+logger = setup_logging()
+app = Flask(__name__)
 
 PRIMARY_DB = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "db/weather-server.db"
