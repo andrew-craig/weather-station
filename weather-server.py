@@ -230,7 +230,7 @@ def get_latest_birds():
 def write_latest_birds(
     id: str, ts: int, scientific_name: str, common_name: str, confidence: float
 ):
-    query = f"""INSERT INTO thp_readings VALUES('{id}', {ts}, '{scientific_name}', '{common_name}', {confidence})"""
+    query = f"""INSERT INTO bird_observations VALUES('{id}', {ts}, '{scientific_name}', '{common_name}', {confidence})"""
     print(query)
     _ = write_db(query)
     return True
