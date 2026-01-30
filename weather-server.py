@@ -82,6 +82,10 @@ def initiate_tables(db_path):
     return True
 
 
+# Initialize database tables on module load (required for gunicorn)
+initiate_tables(PRIMARY_DB)
+
+
 def query_db(query: str):
     logger.info(f"Executing query: {query[:100]}...")
     try:
@@ -381,11 +385,6 @@ def birds_latest():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        filename="weather-server.log",
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
     print("Triggering table initiation")
-    initiate_tables(PRIMARY_DB)
+    _ = initiate_tables(PRIMARY_DB)
     app.run(debug=True, host="0.0.0.0", port=5005)
