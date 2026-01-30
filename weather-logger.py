@@ -15,8 +15,41 @@ import sqlite3
 import paho.mqtt.client as mqtt
 from uuid_extensions import uuid7str
 from zoneinfo import ZoneInfo
+import json
+import sys
 
-logger = logging.getLogger(__name__)
+class JSONFormatter(logging.Formatter):
+    # Standard logging record attributes to exclude from metadata
+    RESERVED_ATTRS = {
+        'name', 'msg', 'args', 'created', 'filename', 'funcName', 'levelname',
+        'levelno', 'lineno', 'module', 'msecs', 'message', 'pathname', 'process',
+        'processName', 'relativeCreated', 'thread', 'threadName', 'exc_info',
+        'exc_text', 'stack_info', 'getMessage', 'getMessage'
+    }
+
+    def format(self, record):
+        log_data = {
+            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "level": record.levelname,
+            "service": "my-python-app",  # Change this to your service name
+            "message": record.getMessage(),
+            "logger": record.name,
+        }
+
+        return json.dumps(log_data)
+
+def setup_logging():
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JSONFormatter())
+
+    logger = logging.getLogger()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    return logger
+
+# Add Logger
+logger = setup_logging()
 
 # Database configuration
 LOGGER_DB = os.path.join(
@@ -251,12 +284,6 @@ def log_readings(mqtt_client):
 
 
 def main():
-    logging.basicConfig(
-        filename="weather-logger.log",
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
-
     # Initialize database tables
     print("Triggering table initiation for weather-logger database")
     initiate_tables(LOGGER_DB)
