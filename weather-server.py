@@ -39,6 +39,7 @@ def setup_logging():
 
 # Add Logger
 logger = setup_logging()
+
 app = Flask(__name__)
 
 PRIMARY_DB = os.path.join(
@@ -82,12 +83,17 @@ def initiate_tables(db_path):
 
 
 def query_db(query: str):
-    connection = sqlite3.connect(PRIMARY_DB)
-    cursor = connection.cursor()
-    _ = cursor.execute(query)
-    data = cursor.fetchall()
-    connection.close()
-    return data
+    logger.info(f"Executing query: {query[:100]}...")
+    try:
+        connection = sqlite3.connect(PRIMARY_DB)
+        cursor = connection.cursor()
+        _ = cursor.execute(query)
+        data = cursor.fetchall()
+        connection.close()
+        return data
+    except sqlite3.Error as e:
+        logger.error(f"Database error executing query: {type(e).__name__}: {e}")
+        raise
 
 
 def write_db(query: str):
@@ -174,11 +180,13 @@ def query_recent_air():
 
 def query_recent_weather():
     min_ts = datetime.datetime.now(tz=ZoneInfo("UTC")).timestamp() - 300
+    logger.info(f"Querying recent weather with min_ts={min_ts}")
     data = query_db(
         "select avg(temperature), avg(humidity), avg(pressure), count(id), max(ts) from thp_readings where ts > {min_ts} ".format(
             min_ts=min_ts
         )
     )
+    logger.info(f"Query returned: {data}")
     if data[0][3] == 0:
         raise ValueError("No recent readings")
     else:
@@ -287,10 +295,17 @@ def latest_weather():
 
 @app.route("/weather/recent", methods=["GET"])
 def read_recent_weather():
+    logger.info("Received GET request to /weather/recent")
     try:
-        return jsonify(query_recent_weather())
-    except ValueError:
+        result = query_recent_weather()
+        logger.info(f"Successfully retrieved recent weather: {result.get('num_readings')} readings")
+        return jsonify(result)
+    except ValueError as e:
+        logger.warning(f"No recent readings available: {e}")
         return jsonify({"error": "No recent readings"}), 500
+    except Exception as e:
+        logger.error(f"Unexpected error in /weather/recent: {type(e).__name__}: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route("/air/latest", methods=["GET", "POST"])
