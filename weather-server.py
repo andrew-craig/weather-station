@@ -20,7 +20,7 @@ class JSONFormatter(logging.Formatter):
         log_data = {
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
-            "service": "my-python-app",  # Change this to your service name
+            "service": "weather-server",  # Change this to your service name
             "message": record.getMessage(),
             "logger": record.name,
         }
