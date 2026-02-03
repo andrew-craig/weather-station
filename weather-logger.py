@@ -69,13 +69,10 @@ def initiate_tables(db_path):
         },
     ]
     logger.info(f"Initiating {len(tables)} tables.")
-    print("Initiating tables")
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
     for table in tables:
-        print("Initiating a table")
-        print(table.get("name"))
-        print(table.get("columns"))
+        logger.debug(f"Initiating table: {table.get('name')} with columns: {table.get('columns')}")
         cursor.execute(
             """CREATE TABLE IF NOT EXISTS {table_name} ({columns})""".format(
                 table_name=table.get("name"), columns=table.get("columns")
@@ -83,7 +80,6 @@ def initiate_tables(db_path):
         )
     connection.commit()
     connection.close()
-    print("Completed table initiation")
     logger.info(f"Completed table initiation.")
     return True
 
@@ -101,7 +97,7 @@ def write_latest_weather(
     id: str, ts: float, temperature: float, humidity: float, pressure: float
 ):
     query = f"""INSERT INTO thp_readings VALUES('{id}', {ts}, {temperature}, {humidity}, {pressure})"""
-    print(query)
+    logger.debug(f"Weather query: {query}")
     write_logger_data(query)
     return True
 
@@ -127,14 +123,14 @@ NODE_ID = socket.gethostname()  # Use hostname as node identifier
 def on_connect(client, userdata, flags, rc):
     """Callback for when the client connects to the broker"""
     if rc == 0:
-        print(f"Connected to MQTT broker at {BROKER_HOST}:{BROKER_PORT}")
+        logger.info(f"Connected to MQTT broker at {BROKER_HOST}:{BROKER_PORT}")
     else:
-        print(f"Failed to connect to MQTT broker. Return code: {rc}")
+        logger.error(f"Failed to connect to MQTT broker. Return code: {rc}")
 
 
 def on_publish(client, userdata, mid):
     """Callback for when a message is published"""
-    print(f"Message ID {mid} published successfully")
+    logger.debug(f"Message ID {mid} published successfully")
 
 
 def publish_discovery_messages(client):
@@ -194,7 +190,7 @@ def publish_discovery_messages(client):
 
         # Publish discovery message with retain flag
         client.publish(config_topic, json.dumps(payload), qos=1, retain=True)
-        print(f"Published discovery message for {sensor_type} sensor")
+        logger.debug(f"Published discovery message for {sensor_type} sensor")
 
     # Set device as available
     client.publish(
@@ -232,7 +228,7 @@ def log_readings(mqtt_client):
                 logger.info("Error saving data from BME Sensor.")
 
             try:
-                print(f"Connecting to MQTT broker at {BROKER_HOST}:{BROKER_PORT}...")
+                logger.debug(f"Publishing BME sensor data to MQTT broker at {BROKER_HOST}:{BROKER_PORT}")
                 sensor_data = {
                     "temperature": bme_data[0],
                     "humidity": bme_data[1],
@@ -285,7 +281,7 @@ def log_readings(mqtt_client):
 
 def main():
     # Initialize database tables
-    print("Triggering table initiation for weather-logger database")
+    logger.info("Triggering table initiation for weather-logger database")
     initiate_tables(LOGGER_DB)
 
     # Create an MQTT client instance
@@ -309,7 +305,6 @@ def main():
     #            print("Second Worker Executed")
 
     loop = asyncio.get_event_loop()
-    print("Starting Server")
     logger.info("Starting Server")
     try:
         asyncio.ensure_future(readingsWorker())
@@ -318,7 +313,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        print("Stopping Server")
+        logger.info("Stopping Server")
         mqtt_client.publish(
             f"homeassistant/sensor/{DEVICE_ID}/availability",
             "offline",
